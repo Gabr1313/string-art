@@ -1,5 +1,7 @@
 # STRINGIFY
 
+![Alt text](images/kobe.png)
+
 ## Description
 STRINGIFY is a program that takes a PPM file as input and outputs a stringified version of the same 
 image. Additionally, the program can create a video clip of the artwork as it is being created.
@@ -10,7 +12,7 @@ image. Additionally, the program can create a video clip of the artwork as it is
 - `ffmpeg`: recommended for converting between various image and video file formats 
 and PPM/Y4M.
 
-### Converting Files `with ffmpeg`
+### Converting Files with `ffmpeg`
 
 ```bash
 # Convert an image to PPM
@@ -47,6 +49,7 @@ Create a stringified image and video clip:
 For more details, take a look at the Makefile included in the project.
 
 ## Advanced Configuration
-To adjust parameters such as the number of lines and thickness in the drawing, modify the #define statements in the source code.
+To adjust parameters such as the number of lines and thickness in the drawing, modify the `#define`
+statements in the source code.
 
 For enabling tracing, uncomment the line in the code that ends with `// trace`.
