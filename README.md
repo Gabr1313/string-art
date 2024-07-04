@@ -9,8 +9,8 @@ image. Additionally, the program can create a video clip of the artwork as it is
 ## Dependencies
 - `gcc`: or any other compiler
 - `make`: recommended for building the program
-- `ffmpeg`: recommended for converting between various image and video file formats 
-and PPM/Y4M.
+- `ffmpeg`: recommended for converting between various image and video file formats, particulary
+for use with `.ppm` for images and `.y4m` for videos.
 
 ### Converting Files with `ffmpeg`
 
