@@ -6,3 +6,6 @@
 *.mp4
 *.y4m
 .~lock.output.y4m#
+
+a.out
+stringify

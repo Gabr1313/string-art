@@ -28,17 +28,21 @@ typedef struct _Segment {
 
 typedef struct _Rays {
     u32 nodes, width, height, size;
-    Segment* seg;  // @todo: one array for every node, so I can remove quickly the ones i don't use
+    Segment* seg;
 } Rays;
 
 typedef struct _Point {
     f32 x, y;
 } Point;
 
+// @todo paramethers for those defines and verbosity (i don't think i will)
+
+// play with this paramethers
 #define NODES 1000
-#define LINE_COLOR 4   // <= 256. Distance from line is like
-#define WIDTH_MIN 0.4  //         as follow      __
-#define WIDTH_MAX 1.0  // >=1                 __/  \__
+#define LINE_COLOR 4   // <= 256. Distance from line is as follows:
+#define WIDTH_MIN 0.4  // <= WIDTH_MIN                  __
+#define WIDTH_MAX 1.0  // >=1                        __/  \__
+
 #define CHECK_M(mat, k) (mat[(k) / 64] & ((u64)1 << ((k) % 64)))
 #define FLIP_M(mat, k) (mat[(k) / 64] ^= ((u64)1 << ((k) % 64)))
 
@@ -71,29 +75,43 @@ void y4m_frame(FILE* video, BWBuffer canvas);
 
 i32 main(i32 argc, char* argv[]) {
     clock_t time1 = clock();
-    assert(argc == 2);
+    if (!(argc >= 3 && argc <= 6)) {
+        fprintf(
+            stderr,
+            "Usage: %s <image_in>.ppm <image_out>.ppm [<video_out>.y4m] [lines_per_frame] [fps]\n",
+            argv[0]);
+        return 0;
+    }
     BWBuffer original = bwb_from_ppm_file(argv[1]);
     BWBuffer canvas = bwb_new_white(original.width, original.height);
     Rays ls = rays_new(NODES, original.width, original.height);
     clock_t time2 = clock();
-    printf("First part  finished (%.3lfs): rays created\n", (double)(time2 - time1) / CLOCKS_PER_SEC);
+    fprintf(stderr, "First  part finished (%.1lfs): rays created\n",
+            (double)(time2 - time1) / CLOCKS_PER_SEC);
     u64* check_matrix = calloc(((NODES * (NODES - 1) / 2) + 63) / 64, sizeof(u64));
     assert(check_matrix);
-    FILE* video = y4m_init("output.y4m", canvas.width, canvas.height, 30);
-    for (u32 idx = 0, frame = 0; idx != ls.nodes;frame++) {
-        idx = draw_best_from_node(idx, ls, canvas, original, check_matrix);
-        if (!(frame & 63)) y4m_frame(video, canvas);
+    if (argc >= 4) {
+        u32 lines_per_frame = argc >= 5 ? atoi(argv[4]) : 64;
+        FILE* video =
+            y4m_init(argv[3], canvas.width, canvas.height, argc >= 6 ? atoi(argv[5]) : 30);
+        for (u32 idx = 0, frame = 0; idx != ls.nodes; frame++) {
+            idx = draw_best_from_node(idx, ls, canvas, original, check_matrix);
+            if (!(frame % lines_per_frame)) y4m_frame(video, canvas);
+        }
+    } else {
+        for (u32 idx = 0; idx != ls.nodes;) {
+            // printf("%u ", idx); // trace
+            idx = draw_best_from_node(idx, ls, canvas, original, check_matrix);
+        }
     }
-    bwb_to_ppm_file(canvas, "test.ppm");
+    bwb_to_ppm_file(canvas, argv[2]);
     clock_t time3 = clock();
-    printf("Second part finished (%.3lfs): image/video drawn\n", (double)(time3 - time2) / CLOCKS_PER_SEC);
-    y4m_close(video);
+    fprintf(stderr, "Second part finished (%.1lfs): %s drawn\n",
+            (double)(time3 - time2) / CLOCKS_PER_SEC, argc == 4 ? "image and video" : "image");
     free(check_matrix);
     rays_free(ls);
     bwb_free(original);
     bwb_free(canvas);
-    clock_t time4 = clock();
-    printf("Third part  finished (%.3lfs): free\n", (double)(time4 - time3) / CLOCKS_PER_SEC);
     return 0;
 }
 
@@ -142,17 +160,9 @@ BWBuffer bwb_from_ppm_file(char* file_name) {
 void bwb_to_ppm_file(BWBuffer bwb, char* file_name) {
     FILE* image = fopen(file_name, "w");
     fprintf(image, "P6\n%u %u\n255\n", bwb.width, bwb.height);
-    // u32 x_center = bwb.width / 2;
-    // u32 y_center = bwb.height / 2;
-    // u32 radius = x_center < y_center ? x_center : y_center;
-    for (u32 y = 0, k = 0; y < bwb.height; y++) {
-        for (u32 x = 0; x < bwb.width; x++, k++) {
-            // if ((x - x_center) * (x - x_center) + (y - y_center) * (y - y_center) < radius *
-            // radius)
+    for (u32 y = 0, k = 0; y < bwb.height; y++)
+        for (u32 x = 0; x < bwb.width; x++, k++)
             fprintf(image, "%c%c%c", bwb.buf[k], bwb.buf[k], bwb.buf[k]);
-            // else fprintf(image, "%c%c%c", 0, 0, 0);
-        }
-    }
     fclose(image);
 }
 
@@ -213,19 +223,9 @@ Rays rays_new(u32 nodes, u32 width, u32 height) {  // @ugly
                 } else continue;
                 assert(pc_x(cp[cnt - 1]) == x && pc_y(cp[cnt - 1]) == y);
                 add_neighbour(x, y, &idx, width, height, todo, check_matrix);
-
-                // #define PRINT(xxx) \
-//     if (pos == 2775) printf("%u %lu\n", xxx, cp[6])
-                //
-                //                 PRINT(0);
             }
-            // PRINT(1);
-            // assert(cnt);
-            // PRINT(2);
             seg[pos] = seg_new(cnt, copy_malloc(cp, sizeof(*cp) * cnt));
             for (u32 k = 0; k < cnt_flipped; k++) FLIP_M(check_matrix, flipped[k]);
-            // PRINT(3);
-            // if (pos == 2775) fflush(stdout), assert(0);
         }
     }
     free(cp);
@@ -233,14 +233,13 @@ Rays rays_new(u32 nodes, u32 width, u32 height) {  // @ugly
     free(check_matrix);
     free(todo);
     free(flipped);
-    Rays l = {
+    return (Rays){
         .nodes = nodes,
         .width = width,
         .height = height,
         .size = size,
         .seg = seg,
     };
-    return l;
 }
 
 void* copy_malloc(void* ptr, u64 size) {
@@ -277,7 +276,6 @@ void bwb_draw_line(BWBuffer bwb, Segment seg) {
 
 PointCanvas pc_new(u64 x, u64 y, u64 col) {
     assert(x < ((u64)1 << 28) && y < ((u64)1 << 28) && col < ((u64)1 << 8));
-    // printf("(%lu,%lu,%lu)\n", x, y, col), fflush(stdout);
     return (col << 56) + (y << 28) + x;
 }
 
@@ -294,11 +292,10 @@ u8 pc_color(PointCanvas p) {
 }
 
 Segment seg_new(u32 size, PointCanvas* pp) {
-    Segment s = {
+    return (Segment){
         .size = size,
         .pp = pp,
     };
-    return s;
 }
 void seg_free(Segment s) {
     free(s.pp);
