@@ -1,1 +1,8 @@
 *.ppm
+*.jpeg
+*.jpg
+*.png
+
+*.mp4
+*.y4m
+.~lock.output.y4m#
